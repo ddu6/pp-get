@@ -1,0 +1,23 @@
+{
+  "name": "pp-get",
+  "version": "0.1.0",
+  "description": "",
+  "scripts": {
+    "init": "node src/init.js",
+    "collect": "node src/collect.js",
+    "download": "node src/download.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ddu6/pp-get.git"
+  },
+  "author": "",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/ddu6/pp-get/issues"
+  },
+  "homepage": "https://github.com/ddu6/pp-get#readme",
+  "dependencies": {
+    "csv": "^5.3.2"
+  }
+}
