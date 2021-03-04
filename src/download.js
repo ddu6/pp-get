@@ -33,6 +33,7 @@ async function getVideos(){
             fs.mkdirSync(path0)
         }
         const path1=path.join(__dirname,`../archive/${courseName}_${courseId}/${className}.mp4`)
+        if(fs.existsSync(path1))continue
         if(!useFirmURL){
             const result=await getVideo(path1,url)
             if(!result)errs.push(item)
