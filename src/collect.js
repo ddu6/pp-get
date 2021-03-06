@@ -297,7 +297,7 @@ async function getClasses1(users){
         if(typeof courseId!=='string'
         ||typeof courseName!=='string'
         ||typeof className!=='string')continue
-        const path0=path.join(__dirname,`../archive/${courseName}_${courseId}/${className}.mp4`)
+        const path0=path.join(__dirname,`../archive/${courseName} ${courseId}/${className}.mp4`)
         if(fs.existsSync(path0))continue
         classes1.push(item)
     }
@@ -355,7 +355,7 @@ async function getClasses0(session,courseId){
             res.on('end',()=>{
                 try{
                     const hqyCourseId=data.match(/hqyCourseId=\d+/).map(val=>val.slice('hqyCourseId='.length))[0]
-                    const array=data.match(/hqySubId=\d+/g).map(val=>hqyCourseId+'_'+val.slice('hqySubId='.length))
+                    const array=data.match(/hqySubId=\d+/g).map(val=>hqyCourseId+'-'+val.slice('hqySubId='.length))
                     resolve(array)
                     fs.writeFileSync(path.join(__dirname,`../info/courses/${courseId}.html`),data)
                 }catch(err){resolve(false)}
@@ -371,7 +371,7 @@ async function getClasses0(session,courseId){
     return classes
 }
 async function getClassInfo(token,classId){
-    const [hqyCourseId,hqySubId]=classId.split('_')
+    const [hqyCourseId,hqySubId]=classId.split('-')
     const info=await new Promise(resolve=>{
         https.get(`https://livingroomhqy.pku.edu.cn/courseapi/v2/schedule/search-live-course-list?all=1&course_id=${hqyCourseId}&sub_id=${hqySubId}&with_sub_data=1`,{
             headers:{

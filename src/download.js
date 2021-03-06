@@ -28,11 +28,11 @@ async function getVideos(){
         ||typeof className!=='string'
         ||typeof firmURL!=='string'
         ||typeof url!=='string')continue
-        const path0=path.join(__dirname,`../archive/${courseName}_${courseId}/`)
+        const path0=path.join(__dirname,`../archive/${courseName} ${courseId}/`)
         if(!fs.existsSync(path0)){
             fs.mkdirSync(path0)
         }
-        const path1=path.join(__dirname,`../archive/${courseName}_${courseId}/${className}.mp4`)
+        const path1=path.join(__dirname,`../archive/${courseName} ${courseId}/${className}.mp4`)
         if(fs.existsSync(path1))continue
         if(!useFirmURL){
             const result=await getVideo(path1,url)
