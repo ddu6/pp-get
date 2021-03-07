@@ -14,13 +14,13 @@ npm install
 ```
 npm run init
 ```
-Modify `passwords.csv`.
+Fill in `passwords.csv`.
 
 ## Use
 ```
 npm run collect
 ```
-Check and modify `classes.csv`.
+Check `classes.csv`.
 ```
 npm run download
 ```
