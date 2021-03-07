@@ -24,19 +24,25 @@ function semilog(msg) {
     fs.appendFileSync(path.join(__dirname, '../info/semilog.txt'), string + '\n\n');
 }
 async function basicallyGet(url, params = {}, cookie = '', referer = '') {
-    const paramsStr = new URLSearchParams(params).toString();
-    url = new URL('?' + paramsStr, url).href;
+    let paramsStr = new URL(url).searchParams.toString();
+    if (paramsStr.length > 0)
+        paramsStr += '&';
+    paramsStr += new URLSearchParams(params).toString();
+    if (paramsStr.length > 0)
+        paramsStr = '?' + paramsStr;
+    url = new URL(paramsStr, url).href;
     const headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.198 Safari/537.36',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.198 Safari/537.36'
     };
     if (cookie.length > 0)
         headers.Cookie = cookie;
     if (referer.length > 0)
         headers.Referer = referer;
     const result = await new Promise((resolve) => {
-        https.get(url, {
+        const httpsOrHTTP = url.startsWith('https://') ? https : http;
+        httpsOrHTTP.get(url, {
             headers: headers
-        }, res => {
+        }, async (res) => {
             const { statusCode } = res;
             if (statusCode === undefined) {
                 resolve(500);
@@ -61,7 +67,9 @@ async function basicallyGet(url, params = {}, cookie = '', referer = '') {
             res.on('end', () => {
                 resolve({
                     body: body,
-                    cookie: cookie
+                    cookie: cookie,
+                    headers: res.headers,
+                    status: statusCode
                 });
             });
             res.on('error', err => {
@@ -87,10 +95,11 @@ async function basicallyPost(url, params = {}, cookie = '', referer = '') {
     if (referer.length > 0)
         headers.Referer = referer;
     const result = await new Promise((resolve) => {
-        const req = https.request(url, {
+        const httpsOrHTTP = url.startsWith('https://') ? https : http;
+        const req = httpsOrHTTP.request(url, {
             method: 'POST',
             headers: headers
-        }, res => {
+        }, async (res) => {
             const { statusCode } = res;
             if (statusCode === undefined) {
                 resolve(500);
@@ -115,7 +124,9 @@ async function basicallyPost(url, params = {}, cookie = '', referer = '') {
             res.on('end', () => {
                 resolve({
                     body: body,
-                    cookie: cookie
+                    cookie: cookie,
+                    headers: res.headers,
+                    status: statusCode
                 });
             });
             res.on('error', err => {

@@ -3,16 +3,11 @@ import * as http from 'http'
 import * as fs from 'fs'
 import * as path from 'path'
 import * as csv from 'csv'
-type Headers={
-    'User-Agent':string
-    Cookie?:string
-    Referer?:string
-    'X-Requested-With'?:string
-    'Content-Type'?:string
-}
 interface Res{
     cookie:string
     body:string
+    headers:http.IncomingHttpHeaders
+    status:number
 }
 interface UserInfo{
     password:string
@@ -50,17 +45,21 @@ function semilog(msg:string|Error){
     fs.appendFileSync(path.join(__dirname,'../info/semilog.txt'),string+'\n\n')
 }
 async function basicallyGet(url:string,params:Record<string,string>={},cookie='',referer=''){
-    const paramsStr=new URLSearchParams(params).toString()
-    url=new URL('?'+paramsStr,url).href
-    const headers:Headers={
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.198 Safari/537.36',
+    let paramsStr=new URL(url).searchParams.toString()
+    if(paramsStr.length>0)paramsStr+='&'
+    paramsStr+=new URLSearchParams(params).toString()
+    if(paramsStr.length>0)paramsStr='?'+paramsStr
+    url=new URL(paramsStr,url).href
+    const headers:http.OutgoingHttpHeaders={
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.198 Safari/537.36'
     }
     if(cookie.length>0)headers.Cookie=cookie
     if(referer.length>0)headers.Referer=referer
     const result=await new Promise((resolve:(val:number|Res)=>void)=>{
-        https.get(url,{
+        const httpsOrHTTP=url.startsWith('https://')?https:http
+        httpsOrHTTP.get(url,{
             headers:headers
-        },res=>{
+        },async res=>{
             const {statusCode}=res
             if(statusCode===undefined){
                 resolve(500)
@@ -84,7 +83,9 @@ async function basicallyGet(url:string,params:Record<string,string>={},cookie=''
             res.on('end',()=>{
                 resolve({
                     body:body,
-                    cookie:cookie
+                    cookie:cookie,
+                    headers:res.headers,
+                    status:statusCode
                 })
             })
             res.on('error',err=>{
@@ -100,7 +101,7 @@ async function basicallyGet(url:string,params:Record<string,string>={},cookie=''
 }
 async function basicallyPost(url:string,params:Record<string,string>={},cookie='',referer=''){
     const paramsStr=new URLSearchParams(params).toString()
-    const headers:Headers={
+    const headers:http.OutgoingHttpHeaders={
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.198 Safari/537.36',
         'X-Requested-With': 'XMLHttpRequest',
         'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
@@ -108,10 +109,11 @@ async function basicallyPost(url:string,params:Record<string,string>={},cookie='
     if(cookie.length>0)headers.Cookie=cookie
     if(referer.length>0)headers.Referer=referer
     const result=await new Promise((resolve:(val:number|Res)=>void)=>{
-        const req=https.request(url,{
+        const httpsOrHTTP=url.startsWith('https://')?https:http
+        const req=httpsOrHTTP.request(url,{
             method:'POST',
             headers:headers
-        },res=>{
+        },async res=>{
             const {statusCode}=res
             if(statusCode===undefined){
                 resolve(500)
@@ -135,7 +137,9 @@ async function basicallyPost(url:string,params:Record<string,string>={},cookie='
             res.on('end',()=>{
                 resolve({
                     body:body,
-                    cookie:cookie
+                    cookie:cookie,
+                    headers:res.headers,
+                    status:statusCode
                 })
             })
             res.on('error',err=>{
