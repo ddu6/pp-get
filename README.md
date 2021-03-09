@@ -1,5 +1,5 @@
 # PKU Playbacks Getter
-- Require [`nodejs`](https://nodejs.org/).
+- Require [nodejs](https://nodejs.org/).
 
 ## Install
 ```
