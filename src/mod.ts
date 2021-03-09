@@ -29,9 +29,12 @@ interface CompleteClassInfo extends ClassInfo{
     courseId:string
     classId:string
 }
-function semilog(msg:string|Error){
+function getDate(){
     const date=new Date()
-    let string=[date.getMonth()+1,date.getDate()].map(val=>val.toString()).join('/')+' '+[date.getHours(),date.getMinutes(),date.getSeconds()].map(val=>val.toString()).join(':')+' '
+    return [date.getMonth()+1,date.getDate()].map(val=>val.toString().padStart(2,'0')).join('-')+' '+[date.getHours(),date.getMinutes(),date.getSeconds()].map(val=>val.toString().padStart(2,'0')).join(':')+':'+date.getMilliseconds().toString().padStart(3,'0')
+}
+function semilog(msg:string|Error){
+    let string=getDate()+'  '
     if(typeof msg!=='string'){
         const {stack}=msg
         if(stack!==undefined){
@@ -42,7 +45,13 @@ function semilog(msg:string|Error){
     }else{
         string+=msg
     }
+    string=string.replace(/\n */g,'\n                    ')
     fs.appendFileSync(path.join(__dirname,'../info/semilog.txt'),string+'\n\n')
+    return string
+}
+function log(msg:string|Error){
+    const string=semilog(msg)
+    console.log(string+'\n')
 }
 async function basicallyGet(url:string,params:Record<string,string>={},cookie='',referer=''){
     let paramsStr=new URL(url).searchParams.toString()
@@ -206,7 +215,7 @@ export async function getUserInfos(){
     if(passwords.length===0)throw new Error('passwords.csv is not filled in correctly.')
     for(let i=0;i<passwords.length;i++){
         const {studentId,password}=passwords[i]
-        console.log(studentId)
+        log(studentId)
         const user:UserInfo={
             password:password,
             blackboardSession:await getBlackboardSession(studentId,password),
@@ -309,7 +318,7 @@ export async function getCourseInfosAndClassInfos(users:Record<string,UserInfo>)
         const {blackboardSession,hqyToken}=users[studentId]
         const classIds=await getClassIds(blackboardSession,courseId)
         courseInfo.classIds=classIds
-        console.log(`${courseId} ${classIds.length}`)
+        log(`${courseId} ${classIds.length}`)
         for(let i=0;i<classIds.length;i++){
             const classId=classIds[i]
             let classInfo:ClassInfo
@@ -399,7 +408,7 @@ async function getClassInfo(hqyToken:string,classId:string){
             url:url,
             firmURL:firmURL
         }
-        console.log(info)
+        log(info.courseName+' '+info.className+' '+info.url)
         return info
     }catch(err){
         if(err instanceof Error){
@@ -424,7 +433,7 @@ export async function getVideos(){
         if(!useFirmURL){
             const result=await getVideo(path0,url)
             if(result!==200){
-                console.log(`${result.toString()}. Fail to download ${url}.`)
+                log(`${result.toString()}. Fail to download ${url}.`)
                 errClassIds.push(classId)
             }
             continue
@@ -434,12 +443,12 @@ export async function getVideos(){
             useFirmURL=false
             const result=await getVideo(path0,url)
             if(result!==200){
-                console.log(`${result.toString()}. Fail to download ${url}.`)
+                log(`${result.toString()}. Fail to download ${url}.`)
                 errClassIds.push(classId)
             }
         }
     }
-    console.log(`Fail to download ${errClassIds.join(' ')}.`)
+    log(`Fail to download ${errClassIds.join(' ')}.`)
     return errClassIds
 }
 async function getVideo(path0:string,url:string){

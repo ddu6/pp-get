@@ -6,9 +6,12 @@ const http = require("http");
 const fs = require("fs");
 const path = require("path");
 const csv = require("csv");
-function semilog(msg) {
+function getDate() {
     const date = new Date();
-    let string = [date.getMonth() + 1, date.getDate()].map(val => val.toString()).join('/') + ' ' + [date.getHours(), date.getMinutes(), date.getSeconds()].map(val => val.toString()).join(':') + ' ';
+    return [date.getMonth() + 1, date.getDate()].map(val => val.toString().padStart(2, '0')).join('-') + ' ' + [date.getHours(), date.getMinutes(), date.getSeconds()].map(val => val.toString().padStart(2, '0')).join(':') + ':' + date.getMilliseconds().toString().padStart(3, '0');
+}
+function semilog(msg) {
+    let string = getDate() + '  ';
     if (typeof msg !== 'string') {
         const { stack } = msg;
         if (stack !== undefined) {
@@ -21,7 +24,13 @@ function semilog(msg) {
     else {
         string += msg;
     }
+    string = string.replace(/\n */g, '\n                    ');
     fs.appendFileSync(path.join(__dirname, '../info/semilog.txt'), string + '\n\n');
+    return string;
+}
+function log(msg) {
+    const string = semilog(msg);
+    console.log(string + '\n');
 }
 async function basicallyGet(url, params = {}, cookie = '', referer = '') {
     let paramsStr = new URL(url).searchParams.toString();
@@ -199,7 +208,7 @@ async function getUserInfos() {
         throw new Error('passwords.csv is not filled in correctly.');
     for (let i = 0; i < passwords.length; i++) {
         const { studentId, password } = passwords[i];
-        console.log(studentId);
+        log(studentId);
         const user = {
             password: password,
             blackboardSession: await getBlackboardSession(studentId, password),
@@ -311,7 +320,7 @@ async function getCourseInfosAndClassInfos(users) {
         const { blackboardSession, hqyToken } = users[studentId];
         const classIds = await getClassIds(blackboardSession, courseId);
         courseInfo.classIds = classIds;
-        console.log(`${courseId} ${classIds.length}`);
+        log(`${courseId} ${classIds.length}`);
         for (let i = 0; i < classIds.length; i++) {
             const classId = classIds[i];
             let classInfo;
@@ -416,7 +425,7 @@ async function getClassInfo(hqyToken, classId) {
             url: url,
             firmURL: firmURL
         };
-        console.log(info);
+        log(info.courseName + ' ' + info.className + ' ' + info.url);
         return info;
     }
     catch (err) {
@@ -443,7 +452,7 @@ async function getVideos() {
         if (!useFirmURL) {
             const result = await getVideo(path0, url);
             if (result !== 200) {
-                console.log(`${result.toString()}. Fail to download ${url}.`);
+                log(`${result.toString()}. Fail to download ${url}.`);
                 errClassIds.push(classId);
             }
             continue;
@@ -453,12 +462,12 @@ async function getVideos() {
             useFirmURL = false;
             const result = await getVideo(path0, url);
             if (result !== 200) {
-                console.log(`${result.toString()}. Fail to download ${url}.`);
+                log(`${result.toString()}. Fail to download ${url}.`);
                 errClassIds.push(classId);
             }
         }
     }
-    console.log(`Fail to download ${errClassIds.join(' ')}.`);
+    log(`Fail to download ${errClassIds.join(' ')}.`);
     return errClassIds;
 }
 exports.getVideos = getVideos;
