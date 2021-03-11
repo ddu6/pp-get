@@ -376,7 +376,7 @@ async function getCourseIds(blackboardSession:string){
     const result=body.match(/key=_\d+/g)
     if(result===null)throw new Error(`Fail to get course ids under blackboard session ${blackboardSession}.`)
     const courseIds=result.map(val=>val.split('_')[1])
-    return courseIds//181
+    return courseIds
 }
 async function getClassIds(blackboardSession:string,courseId:string){
     const {body}=await get('https://course.pku.edu.cn/webapps/bb-streammedia-hqy-bb_bb60/videoList.action',{
