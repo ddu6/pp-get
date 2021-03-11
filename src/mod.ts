@@ -359,15 +359,24 @@ export async function getCourseInfosAndClassInfos(users:Record<string,UserInfo>)
     fs.writeFileSync(path.join(__dirname,'../classes.csv'),await stringifyCSV(classInfos,['courseName','courseId','className','classId','url','firmURL']))
 }
 async function getCourseIds(blackboardSession:string){
-    const {body}=await get('https://course.pku.edu.cn/webapps/portal/execute/tabs/tabAction',{
+    let {body}=await get('https://course.pku.edu.cn/webapps/portal/execute/tabs/tabAction',{
         action:'refreshAjaxModule',
         modId:'_978_1',
         tabId:'_1_1'
     },`s_session_id=${blackboardSession}`)
+    try{
+        body+=(await get('https://course.pku.edu.cn/webapps/portal/execute/tabs/tabAction',{
+            action:'refreshAjaxModule',
+            modId:'_977_1',
+            tabId:'_1_1'
+        },`s_session_id=${blackboardSession}`)).body
+    }catch(err){
+        semilog(err)
+    }
     const result=body.match(/key=_\d+/g)
     if(result===null)throw new Error(`Fail to get course ids under blackboard session ${blackboardSession}.`)
     const courseIds=result.map(val=>val.split('_')[1])
-    return courseIds
+    return courseIds//181
 }
 async function getClassIds(blackboardSession:string,courseId:string){
     const {body}=await get('https://course.pku.edu.cn/webapps/bb-streammedia-hqy-bb_bb60/videoList.action',{
