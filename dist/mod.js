@@ -208,7 +208,6 @@ async function getUserInfos() {
         throw new Error('passwords.csv is not filled in correctly.');
     for (let i = 0; i < passwords.length; i++) {
         const { studentId, password } = passwords[i];
-        log(studentId);
         const user = {
             password: password,
             blackboardSession: await getBlackboardSession(studentId, password),
@@ -216,6 +215,7 @@ async function getUserInfos() {
         };
         users[studentId] = user;
         users0[studentId] = user;
+        log(`Successfully get cookies of user ${studentId}.`);
     }
     fs.writeFileSync(path0, JSON.stringify(users0));
     return users;
@@ -320,7 +320,7 @@ async function getCourseInfosAndClassInfos(users) {
         const { blackboardSession, hqyToken } = users[studentId];
         const classIds = await getClassIds(blackboardSession, courseId);
         courseInfo.classIds = classIds;
-        log(`${courseId} ${classIds.length}`);
+        log(`Find ${classIds.length} class videos of course ${courseId}.`);
         for (let i = 0; i < classIds.length; i++) {
             const classId = classIds[i];
             let classInfo;
@@ -369,14 +369,19 @@ async function getCourseInfosAndClassInfos(users) {
         classInfos.push(classInfo);
     }
     fs.writeFileSync(path.join(__dirname, '../classes.csv'), await stringifyCSV(classInfos, ['courseName', 'courseId', 'className', 'classId', 'url', 'firmURL']));
+    log('Finished.');
 }
 exports.getCourseInfosAndClassInfos = getCourseInfosAndClassInfos;
 async function getCourseIds(blackboardSession) {
-    let { body } = await get('https://course.pku.edu.cn/webapps/portal/execute/tabs/tabAction', {
-        action: 'refreshAjaxModule',
-        modId: '_978_1',
-        tabId: '_1_1'
-    }, `s_session_id=${blackboardSession}`);
+    const { collectOldCourses } = JSON.parse(fs.readFileSync(path.join(__dirname, '../config.json'), { encoding: 'utf8' }));
+    let body = '';
+    if (collectOldCourses) {
+        body += (await get('https://course.pku.edu.cn/webapps/portal/execute/tabs/tabAction', {
+            action: 'refreshAjaxModule',
+            modId: '_978_1',
+            tabId: '_1_1'
+        }, `s_session_id=${blackboardSession}`)).body;
+    }
     try {
         body += (await get('https://course.pku.edu.cn/webapps/portal/execute/tabs/tabAction', {
             action: 'refreshAjaxModule',
@@ -388,8 +393,10 @@ async function getCourseIds(blackboardSession) {
         semilog(err);
     }
     const result = body.match(/key=_\d+/g);
-    if (result === null)
-        throw new Error(`Fail to get course ids under blackboard session ${blackboardSession}.`);
+    if (result === null) {
+        semilog(`No course ids are got under blackboard session ${blackboardSession}.`);
+        return [];
+    }
     const courseIds = result.map(val => val.split('_')[1]);
     return courseIds;
 }
@@ -435,23 +442,20 @@ async function getClassInfo(hqyToken, classId) {
             url: url,
             firmURL: firmURL
         };
-        log(info.courseName + ' ' + info.className + ' ' + info.url);
+        log(`Successfully get urls of class video ${classId}.`);
         return info;
     }
     catch (err) {
-        if (err instanceof Error) {
-            err.message = `${err.message} Fail to get class info of class ${classId}.`.trimStart();
-        }
         semilog(err);
+        log(`Fail to get urls of class video ${classId}.`);
     }
 }
 async function getVideos() {
-    let useFirmURL = true;
-    const errClassIds = [];
+    let { useFirmURL, alwaysUseFirmURL } = JSON.parse(fs.readFileSync(path.join(__dirname, '../config.json'), { encoding: 'utf8' }));
     const classInfosStr = fs.readFileSync(path.join(__dirname, '../classes.csv'), { encoding: 'utf8' });
     const classInfos = await parseCSV(classInfosStr);
     for (let i = 0; i < classInfos.length; i++) {
-        const { courseId, classId, courseName, className, url, firmURL } = classInfos[i];
+        const { courseId, courseName, className, url, firmURL } = classInfos[i];
         let path0 = path.join(__dirname, `../archive/${courseName} ${courseId}/`);
         if (!fs.existsSync(path0)) {
             fs.mkdirSync(path0);
@@ -459,26 +463,42 @@ async function getVideos() {
         path0 = path.join(__dirname, `../archive/${courseName} ${courseId}/${className}.mp4`);
         if (fs.existsSync(path0))
             continue;
-        if (!useFirmURL) {
+        if (!useFirmURL && !alwaysUseFirmURL) {
             const result = await getVideo(path0, url);
-            if (result !== 200) {
-                log(`${result.toString()}. Fail to download ${url}.`);
-                errClassIds.push(classId);
+            if (result === 200) {
+                log(`Successfully download ${url} to ${path0}.`);
+                continue;
+            }
+            log(`${result}. Fail to download ${url} to ${path0}.`);
+            try {
+                fs.unlinkSync(path0);
+            }
+            catch (err) {
+                semilog(err);
             }
             continue;
         }
-        const result = await getVideo(path0, firmURL);
-        if (result !== 200) {
-            useFirmURL = false;
-            const result = await getVideo(path0, url);
-            if (result !== 200) {
-                log(`${result.toString()}. Fail to download ${url}.`);
-                errClassIds.push(classId);
-            }
+        let result = await getVideo(path0, firmURL);
+        if (result === 200) {
+            log(`Successfully download ${firmURL} to ${path0}.`);
+            continue;
+        }
+        log(`${result}. Fail to download ${firmURL} to ${path0}.`);
+        useFirmURL = false;
+        result = await getVideo(path0, url);
+        if (result === 200) {
+            log(`Successfully download ${url} to ${path0}.`);
+            continue;
+        }
+        log(`${result}. Fail to download ${url} to ${path0}.`);
+        try {
+            fs.unlinkSync(path0);
+        }
+        catch (err) {
+            semilog(err);
         }
     }
-    log(`Fail to download ${errClassIds.join(' ')}.`);
-    return errClassIds;
+    log('Finished.');
 }
 exports.getVideos = getVideos;
 async function getVideo(path0, url) {
@@ -498,12 +518,18 @@ async function getVideo(path0, url) {
                 resolve(statusCode);
                 return;
             }
-            const size0 = res.headers["content-length"];
-            let size1 = 0;
+            const tmp = res.headers["content-length"];
+            if (tmp === undefined) {
+                semilog('Lack content-length.');
+                resolve(500);
+                return;
+            }
+            const contentLength = Number(tmp);
+            let currentLength = 0;
             let delta = 0;
-            let stream0;
+            let stream;
             try {
-                stream0 = fs.createWriteStream(path0);
+                stream = fs.createWriteStream(path0);
             }
             catch (err) {
                 semilog(err);
@@ -514,23 +540,27 @@ async function getVideo(path0, url) {
                 semilog(err);
                 resolve(500);
             });
-            stream0.on('error', err => {
+            stream.on('error', err => {
                 semilog(err);
                 resolve(500);
             });
-            res.pipe(stream0);
-            process.stdout.write(`${size1} / ${size0} ${path0}`);
+            res.pipe(stream);
+            process.stdout.write(`${(currentLength / contentLength * 100).toFixed(3)}% of ${(contentLength / 1024 / 1024 / 1024).toFixed(1)}GiB downloaded to ${path0}.\r`);
             res.on('data', chunk => {
                 delta += chunk.length;
                 // if(delta<1000000)return
-                size1 += delta;
+                currentLength += delta;
                 delta = 0;
-                process.stdout.write(`\r${size1} / ${size0} ${path0}`);
+                process.stdout.write(`${(currentLength / contentLength * 100).toFixed(3)}% of ${(contentLength / 1024 / 1024 / 1024).toFixed(1)}GiB downloaded to ${path0}.\r`);
             });
             res.on('end', () => {
-                size1 += delta;
-                process.stdout.write(`\r${size1} / ${size0} ${path0}\n`);
-                resolve(200);
+                currentLength += delta;
+                process.stdout.write(`${(currentLength / contentLength * 100).toFixed(3)}% of ${(contentLength / 1024 / 1024 / 1024).toFixed(1)}GiB downloaded to ${path0}.\r`);
+                if (currentLength === contentLength) {
+                    resolve(200);
+                    return;
+                }
+                resolve(500);
             });
         }).on('error', err => {
             semilog(err);
