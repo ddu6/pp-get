@@ -222,7 +222,7 @@ export async function getUserInfos(){
         }
         users[studentId]=user
         users0[studentId]=user
-        log(`Successfully get cookies of user ${studentId}.`)
+        log(`Get cookies of user ${studentId}.`)
     }
     fs.writeFileSync(path0,JSON.stringify(users0))
     return users
@@ -425,7 +425,7 @@ async function getClassInfo(hqyToken:string,classId:string){
             url:url,
             firmURL:firmURL
         }
-        log(`Successfully get urls of class video ${classId}.`)
+        log(`Get urls of class video ${classId}.`)
         return info
     }catch(err){
         semilog(err)
@@ -447,7 +447,7 @@ export async function getVideos(){
         if(!useFirmURL&&!alwaysUseFirmURL){
             const result=await getVideo(path0,url)
             if(result===200){
-                log(`Successfully download ${url} to ${path0}.`)
+                log(`Download ${url} to ${path0}.`)
                 continue
             }
             log(`${result}. Fail to download ${url} to ${path0}.`)
@@ -460,14 +460,14 @@ export async function getVideos(){
         }
         let result=await getVideo(path0,firmURL)
         if(result===200){
-            log(`Successfully download ${firmURL} to ${path0}.`)
+            log(`Download ${firmURL} to ${path0}.`)
             continue            
         }
         log(`${result}. Fail to download ${firmURL} to ${path0}.`)
         useFirmURL=false
         result=await getVideo(path0,url)
         if(result===200){
-            log(`Successfully download ${url} to ${path0}.`)
+            log(`Download ${url} to ${path0}.`)
             continue            
         }
         log(`${result}. Fail to download ${url} to ${path0}.`)
