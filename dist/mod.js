@@ -451,7 +451,7 @@ async function getClassInfo(hqyToken, classId) {
     }
 }
 async function getVideos() {
-    const inCampusNetwork = await checkWhetherInCampusNetwork();
+    const { useFirmURL } = JSON.parse(fs.readFileSync(path.join(__dirname, '../config.json'), { encoding: 'utf8' }));
     const classInfosStr = fs.readFileSync(path.join(__dirname, '../classes.csv'), { encoding: 'utf8' });
     const classInfos = await parseCSV(classInfosStr);
     for (let i = 0; i < classInfos.length; i++) {
@@ -463,7 +463,7 @@ async function getVideos() {
         path0 = path.join(__dirname, `../archive/${courseName} ${courseId}/${className}.mp4`);
         if (fs.existsSync(path0))
             continue;
-        if (!inCampusNetwork) {
+        if (!useFirmURL) {
             const result = await getVideo(path0, url);
             if (result === 200) {
                 log(`Download ${url} to ${path0}.`);
@@ -500,16 +500,6 @@ async function getVideos() {
     log('Finished.');
 }
 exports.getVideos = getVideos;
-async function checkWhetherInCampusNetwork() {
-    try {
-        const { body } = await get('https://its.pku.edu.cn/');
-        return !body.includes('您来自校外');
-    }
-    catch (err) {
-        semilog(err);
-    }
-    return false;
-}
 async function getVideo(path0, url) {
     const httpOrHTTPS = url.startsWith('https://') ? https : http;
     const result = await new Promise((resolve) => {

@@ -13,5 +13,6 @@ if(!fs.existsSync(path0))fs.writeFileSync(path0,'studentId,password\n# 1x000xxxx
 path0=path.join(__dirname,'../config.json')
 if(!fs.existsSync(path0))fs.writeFileSync(path0,
 `{
-    "collectOldCourses":false
+    "collectOldCourses":false,
+    "useFirmURL":true
 }`)
