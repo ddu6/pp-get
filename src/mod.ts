@@ -479,8 +479,13 @@ export async function getVideos(){
     log('Finished.')
 }
 async function checkWhetherInCampusNetwork(){
-    const {body}=await get('https://its.pku.edu.cn/')
-    return !body.includes('您来自校外')
+    try{
+        const {body}=await get('https://its.pku.edu.cn/')
+        return !body.includes('您来自校外')
+    }catch(err){
+        semilog(err)
+    }
+    return false
 }
 async function getVideo(path0:string,url:string){
     const httpOrHTTPS=url.startsWith('https://')?https:http

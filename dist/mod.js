@@ -501,8 +501,14 @@ async function getVideos() {
 }
 exports.getVideos = getVideos;
 async function checkWhetherInCampusNetwork() {
-    const { body } = await get('https://its.pku.edu.cn/');
-    return !body.includes('您来自校外');
+    try {
+        const { body } = await get('https://its.pku.edu.cn/');
+        return !body.includes('您来自校外');
+    }
+    catch (err) {
+        semilog(err);
+    }
+    return false;
 }
 async function getVideo(path0, url) {
     const httpOrHTTPS = url.startsWith('https://') ? https : http;
