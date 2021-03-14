@@ -17,7 +17,5 @@ if (!fs.existsSync(path0))
 path0 = path.join(__dirname, '../config.json');
 if (!fs.existsSync(path0))
     fs.writeFileSync(path0, `{
-    "collectOldCourses":false,
-    "useFirmURL":true,
-    "alwaysUseFirmURL":false
+    "collectOldCourses":false
 }`);
