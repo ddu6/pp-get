@@ -1,2 +1,2 @@
-import {getVideos} from './mod'
-getVideos()
+import {download} from './mod'
+download()

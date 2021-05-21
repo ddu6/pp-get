@@ -1,4 +1,2 @@
-import {getUserInfos,getCourseInfosAndClassInfos} from './mod'
-;(async()=>{
-    await getCourseInfosAndClassInfos(await getUserInfos())
-})()
+import {collect} from './mod'
+collect()

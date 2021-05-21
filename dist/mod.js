@@ -1,11 +1,13 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getVideos = exports.getCourseInfosAndClassInfos = exports.getUserInfos = void 0;
+exports.download = exports.collect = void 0;
 const https = require("https");
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
+const init_1 = require("./init");
 const csv = require("csv");
+Object.assign(init_1.config, JSON.parse(fs.readFileSync(path.join(__dirname, '../config.json'), { encoding: 'utf8' })));
 function getDate() {
     const date = new Date();
     return [date.getMonth() + 1, date.getDate()].map(val => val.toString().padStart(2, '0')).join('-') + ' ' + [date.getHours(), date.getMinutes(), date.getSeconds()].map(val => val.toString().padStart(2, '0')).join(':') + ':' + date.getMilliseconds().toString().padStart(3, '0');
@@ -32,26 +34,42 @@ function log(msg) {
     const string = semilog(msg);
     console.log(string + '\n');
 }
-async function basicallyGet(url, params = {}, cookie = '', referer = '') {
+async function basicallyGet(url, params = {}, form = {}, cookie = '', referer = '', noUserAgent = false) {
     let paramsStr = new URL(url).searchParams.toString();
-    if (paramsStr.length > 0)
+    if (paramsStr.length > 0) {
         paramsStr += '&';
+    }
     paramsStr += new URLSearchParams(params).toString();
-    if (paramsStr.length > 0)
+    if (paramsStr.length > 0) {
         paramsStr = '?' + paramsStr;
+    }
     url = new URL(paramsStr, url).href;
-    const headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.198 Safari/537.36'
-    };
-    if (cookie.length > 0)
+    const formStr = new URLSearchParams(form).toString();
+    const headers = {};
+    if (cookie.length > 0) {
         headers.Cookie = cookie;
-    if (referer.length > 0)
+    }
+    if (referer.length > 0) {
         headers.Referer = referer;
+    }
+    if (!noUserAgent) {
+        headers['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.198 Safari/537.36';
+    }
+    if (formStr.length > 0) {
+        Object.assign(headers, {
+            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
+        });
+    }
+    const options = {
+        method: formStr.length > 0 ? 'POST' : 'GET',
+        headers: headers
+    };
     const result = await new Promise((resolve) => {
+        setTimeout(() => {
+            resolve(500);
+        }, init_1.config.timeout * 1000);
         const httpsOrHTTP = url.startsWith('https://') ? https : http;
-        httpsOrHTTP.get(url, {
-            headers: headers
-        }, async (res) => {
+        const req = httpsOrHTTP.request(url, options, async (res) => {
             const { statusCode } = res;
             if (statusCode === undefined) {
                 resolve(500);
@@ -70,12 +88,20 @@ async function basicallyGet(url, params = {}, cookie = '', referer = '') {
                 cookie = cookie0.map(val => val.split(';')[0]).join('; ');
             }
             let body = '';
+            const buffers = [];
             res.on('data', chunk => {
-                body += chunk;
+                if (typeof chunk === 'string') {
+                    body += chunk;
+                }
+                else if (chunk instanceof Buffer) {
+                    body += chunk;
+                    buffers.push(chunk);
+                }
             });
             res.on('end', () => {
                 resolve({
                     body: body,
+                    buffer: Buffer.concat(buffers),
                     cookie: cookie,
                     headers: res.headers,
                     status: statusCode
@@ -89,76 +115,21 @@ async function basicallyGet(url, params = {}, cookie = '', referer = '') {
             semilog(err);
             resolve(500);
         });
-    });
-    return result;
-}
-async function basicallyPost(url, params = {}, cookie = '', referer = '') {
-    const paramsStr = new URLSearchParams(params).toString();
-    const headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.198 Safari/537.36',
-        'X-Requested-With': 'XMLHttpRequest',
-        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
-    };
-    if (cookie.length > 0)
-        headers.Cookie = cookie;
-    if (referer.length > 0)
-        headers.Referer = referer;
-    const result = await new Promise((resolve) => {
-        const httpsOrHTTP = url.startsWith('https://') ? https : http;
-        const req = httpsOrHTTP.request(url, {
-            method: 'POST',
-            headers: headers
-        }, async (res) => {
-            const { statusCode } = res;
-            if (statusCode === undefined) {
-                resolve(500);
-                return;
-            }
-            if (statusCode >= 400) {
-                resolve(statusCode);
-                return;
-            }
-            let cookie;
-            const cookie0 = res.headers["set-cookie"];
-            if (cookie0 === undefined) {
-                cookie = '';
-            }
-            else {
-                cookie = cookie0.map(val => val.split(';')[0]).join('; ');
-            }
-            let body = '';
-            res.on('data', chunk => {
-                body += chunk;
-            });
-            res.on('end', () => {
-                resolve({
-                    body: body,
-                    cookie: cookie,
-                    headers: res.headers,
-                    status: statusCode
-                });
-            });
-            res.on('error', err => {
-                semilog(err);
-                resolve(500);
-            });
-        }).on('error', err => {
-            semilog(err);
-            resolve(500);
-        });
-        req.write(paramsStr);
+        if (formStr.length > 0) {
+            req.write(formStr);
+        }
         req.end();
     });
     return result;
 }
 async function get(url, params = {}, cookie = '', referer = '') {
-    const result = await basicallyGet(url, params, cookie, referer);
+    const result = await basicallyGet(url, params, {}, cookie, referer);
     if (typeof result === 'number')
         throw new Error(`${result.toString()}. Fail to get ${url}.`);
     return result;
 }
-async function post(url, params = {}, cookie = '', referer = '') {
-    const result = await basicallyPost(url, params, cookie, referer);
+async function post(url, form = {}, cookie = '', referer = '') {
+    const result = await basicallyGet(url, {}, form, cookie, referer);
     if (typeof result === 'number')
         throw new Error(`${result.toString()}. Fail to post ${url}.`);
     return result;
@@ -220,7 +191,6 @@ async function getUserInfos() {
     fs.writeFileSync(path0, JSON.stringify(users0));
     return users;
 }
-exports.getUserInfos = getUserInfos;
 async function getLoginCookie(studentId, password, appId, appName, redirectURL) {
     let { cookie } = await get('https://iaaa.pku.edu.cn/iaaa/oauth.jsp', {
         appID: appId,
@@ -371,11 +341,9 @@ async function getCourseInfosAndClassInfos(users) {
     fs.writeFileSync(path.join(__dirname, '../classes.csv'), await stringifyCSV(classInfos, ['courseName', 'courseId', 'className', 'classId', 'url', 'firmURL']));
     log('Finished.');
 }
-exports.getCourseInfosAndClassInfos = getCourseInfosAndClassInfos;
 async function getCourseIds(blackboardSession) {
-    const { collectOldCourses } = JSON.parse(fs.readFileSync(path.join(__dirname, '../config.json'), { encoding: 'utf8' }));
     let body = '';
-    if (collectOldCourses) {
+    if (init_1.config.collectOldCourses) {
         body += (await get('https://course.pku.edu.cn/webapps/portal/execute/tabs/tabAction', {
             action: 'refreshAjaxModule',
             modId: '_978_1',
@@ -450,56 +418,10 @@ async function getClassInfo(hqyToken, classId) {
         log(`Fail to get urls of class video ${classId}.`);
     }
 }
-async function getVideos() {
-    const { useFirmURL } = JSON.parse(fs.readFileSync(path.join(__dirname, '../config.json'), { encoding: 'utf8' }));
-    const classInfosStr = fs.readFileSync(path.join(__dirname, '../classes.csv'), { encoding: 'utf8' });
-    const classInfos = await parseCSV(classInfosStr);
-    for (let i = 0; i < classInfos.length; i++) {
-        const { courseId, courseName, className, url, firmURL } = classInfos[i];
-        let path0 = path.join(__dirname, `../archive/${courseName} ${courseId}/`);
-        if (!fs.existsSync(path0)) {
-            fs.mkdirSync(path0);
-        }
-        path0 = path.join(__dirname, `../archive/${courseName} ${courseId}/${className}.mp4`);
-        if (fs.existsSync(path0))
-            continue;
-        if (!useFirmURL) {
-            const result = await getVideo(path0, url);
-            if (result === 200) {
-                log(`Download ${url} to ${path0}.`);
-                continue;
-            }
-            log(`${result}. Fail to download ${url} to ${path0}.`);
-            try {
-                fs.unlinkSync(path0);
-            }
-            catch (err) {
-                semilog(err);
-            }
-            continue;
-        }
-        let result = await getVideo(path0, firmURL);
-        if (result === 200) {
-            log(`Download ${firmURL} to ${path0}.`);
-            continue;
-        }
-        log(`${result}. Fail to download ${firmURL} to ${path0}.`);
-        result = await getVideo(path0, url);
-        if (result === 200) {
-            log(`Download ${url} to ${path0}.`);
-            continue;
-        }
-        log(`${result}. Fail to download ${url} to ${path0}.`);
-        try {
-            fs.unlinkSync(path0);
-        }
-        catch (err) {
-            semilog(err);
-        }
-    }
-    log('Finished.');
+async function collect() {
+    await getCourseInfosAndClassInfos(await getUserInfos());
 }
-exports.getVideos = getVideos;
+exports.collect = collect;
 async function getVideo(path0, url) {
     const httpOrHTTPS = url.startsWith('https://') ? https : http;
     const result = await new Promise((resolve) => {
@@ -568,3 +490,52 @@ async function getVideo(path0, url) {
     });
     return result;
 }
+async function download() {
+    const classInfosStr = fs.readFileSync(path.join(__dirname, '../classes.csv'), { encoding: 'utf8' });
+    const classInfos = await parseCSV(classInfosStr);
+    for (let i = 0; i < classInfos.length; i++) {
+        const { courseId, courseName, className, url, firmURL } = classInfos[i];
+        let path0 = path.join(__dirname, `../archive/${courseName} ${courseId}/`);
+        if (!fs.existsSync(path0)) {
+            fs.mkdirSync(path0);
+        }
+        path0 = path.join(__dirname, `../archive/${courseName} ${courseId}/${className}.mp4`);
+        if (fs.existsSync(path0))
+            continue;
+        if (!init_1.config.useFirmURL) {
+            const result = await getVideo(path0, url);
+            if (result === 200) {
+                log(`Download ${url} to ${path0}.`);
+                continue;
+            }
+            log(`${result}. Fail to download ${url} to ${path0}.`);
+            try {
+                fs.unlinkSync(path0);
+            }
+            catch (err) {
+                semilog(err);
+            }
+            continue;
+        }
+        let result = await getVideo(path0, firmURL);
+        if (result === 200) {
+            log(`Download ${firmURL} to ${path0}.`);
+            continue;
+        }
+        log(`${result}. Fail to download ${firmURL} to ${path0}.`);
+        result = await getVideo(path0, url);
+        if (result === 200) {
+            log(`Download ${url} to ${path0}.`);
+            continue;
+        }
+        log(`${result}. Fail to download ${url} to ${path0}.`);
+        try {
+            fs.unlinkSync(path0);
+        }
+        catch (err) {
+            semilog(err);
+        }
+    }
+    log('Finished.');
+}
+exports.download = download;
