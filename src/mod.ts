@@ -36,7 +36,7 @@ function getDate(){
     const date=new Date()
     return [date.getMonth()+1,date.getDate()].map(val=>val.toString().padStart(2,'0')).join('-')+' '+[date.getHours(),date.getMinutes(),date.getSeconds()].map(val=>val.toString().padStart(2,'0')).join(':')+':'+date.getMilliseconds().toString().padStart(3,'0')
 }
-function semilog(msg:string|Error){
+function log(msg:string|Error){
     let string=getDate()+'  '
     if(typeof msg!=='string'){
         const {stack}=msg
@@ -49,11 +49,11 @@ function semilog(msg:string|Error){
         string+=msg
     }
     string=string.replace(/\n */g,'\n                    ')
-    fs.appendFileSync(path.join(__dirname,'../info/semilog.txt'),string+'\n\n')
+    fs.appendFileSync(path.join(__dirname,'../info/log.txt'),string+'\n\n')
     return string
 }
-function log(msg:string|Error){
-    const string=semilog(msg)
+function out(msg:string|Error){
+    const string=log(msg)
     console.log(string+'\n')
 }
 async function basicallyGet(url:string,params:Record<string,string>={},form:Record<string,string>={},cookie='',referer='',noUserAgent=false){
@@ -128,11 +128,11 @@ async function basicallyGet(url:string,params:Record<string,string>={},form:Reco
                 })
             })
             res.on('error',err=>{
-                semilog(err)
+                log(err)
                 resolve(500)
             })
         }).on('error',err=>{
-            semilog(err)
+            log(err)
             resolve(500)
         })
         if(formStr.length>0){
@@ -200,7 +200,7 @@ async function getUserInfos(){
         }
         users[studentId]=user
         users0[studentId]=user
-        log(`Get cookies of user ${studentId}.`)
+        out(`Get cookies of user ${studentId}.`)
     }
     fs.writeFileSync(path0,JSON.stringify(users0))
     return users
@@ -296,7 +296,7 @@ async function getCourseInfosAndClassInfos(users:Record<string,UserInfo>){
         const {blackboardSession,hqyToken}=users[studentId]
         const classIds=await getClassIds(blackboardSession,courseId)
         courseInfo.classIds=classIds
-        log(`Find ${classIds.length} class videos of course ${courseId}.`)
+        out(`Find ${classIds.length} class videos of course ${courseId}.`)
         for(let i=0;i<classIds.length;i++){
             const classId=classIds[i]
             let classInfo:ClassInfo
@@ -335,7 +335,7 @@ async function getCourseInfosAndClassInfos(users:Record<string,UserInfo>){
         classInfos.push(classInfo)
     }
     fs.writeFileSync(path.join(__dirname,'../classes.csv'),await stringifyCSV(classInfos,['courseName','courseId','className','classId','url','firmURL']))
-    log('Finished.')
+    out('Finished.')
 }
 async function getCourseIds(blackboardSession:string){
     let body=''
@@ -353,11 +353,11 @@ async function getCourseIds(blackboardSession:string){
             tabId:'_1_1'
         },`s_session_id=${blackboardSession}`)).body
     }catch(err){
-        semilog(err)
+        log(err)
     }
     const result=body.match(/key=_\d+/g)
     if(result===null){
-        semilog(`No course ids are got under blackboard session ${blackboardSession}.`)
+        log(`No course ids are got under blackboard session ${blackboardSession}.`)
         return []
     }
     const courseIds=result.map(val=>val.split('_')[1])
@@ -380,7 +380,7 @@ async function getClassIds(blackboardSession:string,courseId:string){
         if(err instanceof Error){
             err.message=`${err.message} Fail to get class ids of course ${courseId}.`.trimStart()
         }
-        semilog(err)
+        log(err)
         return []
     }
 }
@@ -402,11 +402,11 @@ async function getClassInfo(hqyToken:string,classId:string){
             url:url,
             firmURL:firmURL
         }
-        log(`Get urls of class video ${classId}.`)
+        out(`Get urls of class video ${classId}.`)
         return info
     }catch(err){
-        semilog(err)
-        log(`Fail to get urls of class video ${classId}.`)
+        log(err)
+        out(`Fail to get urls of class video ${classId}.`)
     }
 }
 export async function collect(){
@@ -431,7 +431,7 @@ async function getVideo(path0:string,url:string){
             }
             const tmp=res.headers["content-length"]
             if(tmp===undefined){
-                semilog('Lack content-length.')
+                log('Lack content-length.')
                 resolve(500)
                 return
             }
@@ -442,16 +442,16 @@ async function getVideo(path0:string,url:string){
             try{
                 stream=fs.createWriteStream(path0)
             }catch(err){
-                semilog(err)
+                log(err)
                 resolve(500)
                 return
             }
             res.on('error',err=>{
-                semilog(err)
+                log(err)
                 resolve(500)
             })
             stream.on('error',err=>{
-                semilog(err)
+                log(err)
                 resolve(500)
             })
             res.pipe(stream)
@@ -473,7 +473,7 @@ async function getVideo(path0:string,url:string){
                 resolve(500)
             })
         }).on('error',err=>{
-            semilog(err)
+            log(err)
             resolve(500)
         })
     })
@@ -493,34 +493,34 @@ export async function download(){
         if(!config.useFirmURL){
             const result=await getVideo(path0,url)
             if(result===200){
-                log(`Download ${url} to ${path0}.`)
+                out(`Download ${url} to ${path0}.`)
                 continue
             }
-            log(`${result}. Fail to download ${url} to ${path0}.`)
+            out(`${result}. Fail to download ${url} to ${path0}.`)
             try{
                 fs.unlinkSync(path0)
             }catch(err){
-                semilog(err)
+                log(err)
             }
             continue
         }
         let result=await getVideo(path0,firmURL)
         if(result===200){
-            log(`Download ${firmURL} to ${path0}.`)
+            out(`Download ${firmURL} to ${path0}.`)
             continue            
         }
-        log(`${result}. Fail to download ${firmURL} to ${path0}.`)
+        out(`${result}. Fail to download ${firmURL} to ${path0}.`)
         result=await getVideo(path0,url)
         if(result===200){
-            log(`Download ${url} to ${path0}.`)
+            out(`Download ${url} to ${path0}.`)
             continue            
         }
-        log(`${result}. Fail to download ${url} to ${path0}.`)
+        out(`${result}. Fail to download ${url} to ${path0}.`)
         try{
             fs.unlinkSync(path0)
         }catch(err){
-            semilog(err)
+            log(err)
         }
     }
-    log('Finished.')
+    out('Finished.')
 }
