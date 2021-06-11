@@ -5,9 +5,9 @@
     "download": "node dist/download.js"
   },
   "devDependencies": {
-    "@types/node": "^14.14.31"
+    "@types/node": "^15.12.2"
   },
   "dependencies": {
-    "csv": "^5.3.2"
+    "csv": "^5.5.0"
   }
 }
