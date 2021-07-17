@@ -1,4 +1,4 @@
-# PKU Playbacks Getter
+# PP Get
 - Require [nodejs](https://nodejs.org/).
 
 ## Install
