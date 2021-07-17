@@ -3,7 +3,7 @@ node_modules
 archive
 info
 course.csv
-classes.csv
-classes-all.csv
+lessons.csv
+lessons-all.csv
 passwords.csv
 config.json

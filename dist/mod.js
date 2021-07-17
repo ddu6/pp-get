@@ -7,7 +7,6 @@ const fs = require("fs");
 const path = require("path");
 const init_1 = require("./init");
 const csv = require("csv");
-Object.assign(init_1.config, JSON.parse(fs.readFileSync(path.join(__dirname, '../config.json'), { encoding: 'utf8' })));
 function getDate() {
     const date = new Date();
     return [date.getMonth() + 1, date.getDate()].map(val => val.toString().padStart(2, '0')).join('-') + ' ' + [date.getHours(), date.getMinutes(), date.getSeconds()].map(val => val.toString().padStart(2, '0')).join(':') + ':' + date.getMilliseconds().toString().padStart(3, '0');
@@ -246,10 +245,10 @@ async function getHQYToken(studentId, password) {
         throw new Error(`Fail to get hqy token of user ${studentId}.`);
     return token;
 }
-async function getCourseInfosAndClassInfos(users) {
+async function getCourseInfosAndLessonInfos(users) {
     const courseInfos = {};
-    const allClassInfos = [];
-    const classInfos = [];
+    const allLessonInfos = [];
+    const lessonInfos = [];
     const path0 = path.join(__dirname, '../info/course.json');
     let allCourseInfos;
     try {
@@ -274,8 +273,8 @@ async function getCourseInfosAndClassInfos(users) {
             else {
                 courseInfo = {
                     studentId: studentId,
-                    classIds: [],
-                    classInfos: {}
+                    lessonIds: [],
+                    lessonInfos: {}
                 };
                 allCourseInfos[courseId] = courseInfo;
             }
@@ -286,33 +285,33 @@ async function getCourseInfosAndClassInfos(users) {
     for (let i = 0; i < courseIds.length; i++) {
         const courseId = courseIds[i];
         const courseInfo = courseInfos[courseId];
-        const { studentId, classInfos } = courseInfo;
+        const { studentId, lessonInfos } = courseInfo;
         const { blackboardSession, hqyToken } = users[studentId];
-        const classIds = await getClassIds(blackboardSession, courseId);
-        courseInfo.classIds = classIds;
-        out(`Find ${classIds.length} class videos of course ${courseId}.`);
-        for (let i = 0; i < classIds.length; i++) {
-            const classId = classIds[i];
-            let classInfo;
-            const tmp = classInfos[classId];
+        const lessonIds = await getLessonIds(blackboardSession, courseId);
+        courseInfo.lessonIds = lessonIds;
+        out(`Find ${lessonIds.length} lesson videos of course ${courseId}.`);
+        for (let i = 0; i < lessonIds.length; i++) {
+            const lessonId = lessonIds[i];
+            let lessonInfo;
+            const tmp = lessonInfos[lessonId];
             if (typeof tmp === 'object' && tmp !== null) {
-                classInfo = tmp;
+                lessonInfo = tmp;
             }
             else {
-                const tmp = await getClassInfo(hqyToken, classId);
+                const tmp = await getLessonInfo(hqyToken, lessonId);
                 if (tmp === undefined)
                     continue;
-                classInfos[classId] = tmp;
-                classInfo = tmp;
+                lessonInfos[lessonId] = tmp;
+                lessonInfo = tmp;
             }
-            allClassInfos.push(Object.assign({
-                classId: classId,
+            allLessonInfos.push(Object.assign({
+                lessonId: lessonId,
                 courseId: courseId
-            }, classInfo));
+            }, lessonInfo));
         }
     }
     fs.writeFileSync(path0, JSON.stringify(allCourseInfos));
-    allClassInfos.sort((a, b) => {
+    allLessonInfos.sort((a, b) => {
         if (a.courseName < b.courseName)
             return -1;
         if (a.courseName > b.courseName)
@@ -321,24 +320,24 @@ async function getCourseInfosAndClassInfos(users) {
             return -1;
         if (a.courseId > b.courseId)
             return 1;
-        if (a.className < b.className)
+        if (a.lessonName < b.lessonName)
             return -1;
-        if (a.className > b.className)
+        if (a.lessonName > b.lessonName)
             return 1;
-        if (a.classId < b.classId)
+        if (a.lessonId < b.lessonId)
             return -1;
         return 1;
     });
-    fs.writeFileSync(path.join(__dirname, '../classes-all.csv'), await stringifyCSV(allClassInfos, ['courseName', 'courseId', 'className', 'classId', 'url', 'firmURL']));
-    for (let i = 0; i < allClassInfos.length; i++) {
-        const classInfo = allClassInfos[i];
-        const { courseId, courseName, className } = classInfo;
-        const path0 = path.join(__dirname, `../archive/${courseName} ${courseId}/${className}.mp4`);
+    fs.writeFileSync(path.join(__dirname, '../lessons-all.csv'), await stringifyCSV(allLessonInfos, ['courseName', 'courseId', 'lessonName', 'lessonId', 'url', 'firmURL']));
+    for (let i = 0; i < allLessonInfos.length; i++) {
+        const lessonInfo = allLessonInfos[i];
+        const { courseId, courseName, lessonName } = lessonInfo;
+        const path0 = path.join(__dirname, `../archive/${courseName} ${courseId}/${lessonName}.mp4`);
         if (fs.existsSync(path0))
             continue;
-        classInfos.push(classInfo);
+        lessonInfos.push(lessonInfo);
     }
-    fs.writeFileSync(path.join(__dirname, '../classes.csv'), await stringifyCSV(classInfos, ['courseName', 'courseId', 'className', 'classId', 'url', 'firmURL']));
+    fs.writeFileSync(path.join(__dirname, '../lessons.csv'), await stringifyCSV(lessonInfos, ['courseName', 'courseId', 'lessonName', 'lessonId', 'url', 'firmURL']));
     out('Finished.');
 }
 async function getCourseIds(blackboardSession) {
@@ -368,7 +367,7 @@ async function getCourseIds(blackboardSession) {
     const courseIds = result.map(val => val.split('_')[1]);
     return courseIds;
 }
-async function getClassIds(blackboardSession, courseId) {
+async function getLessonIds(blackboardSession, courseId) {
     const { body } = await get('https://course.pku.edu.cn/webapps/bb-streammedia-hqy-bb_bb60/videoList.action', {
         course_id: `_${courseId}_1`
     }, `s_session_id=${blackboardSession}`);
@@ -381,19 +380,19 @@ async function getClassIds(blackboardSession, courseId) {
         result = body.match(/hqySubId=\d+/g);
         if (result === null)
             throw new Error();
-        const classIds = result.map(val => hqyCourseId + '-' + val.slice('hqySubId='.length));
-        return classIds;
+        const lessonIds = result.map(val => hqyCourseId + '-' + val.slice('hqySubId='.length));
+        return lessonIds;
     }
     catch (err) {
         if (err instanceof Error) {
-            err.message = `${err.message} Fail to get class ids of course ${courseId}.`.trimStart();
+            err.message = `${err.message} Fail to get lesson ids of course ${courseId}.`.trimStart();
         }
         log(err);
         return [];
     }
 }
-async function getClassInfo(hqyToken, classId) {
-    const [hqyCourseId, hqySubId] = classId.split('-');
+async function getLessonInfo(hqyToken, lessonId) {
+    const [hqyCourseId, hqySubId] = lessonId.split('-');
     try {
         const { body } = await get('https://livingroomhqy.pku.edu.cn/courseapi/v2/schedule/search-live-course-list', {
             all: '1',
@@ -401,25 +400,25 @@ async function getClassInfo(hqyToken, classId) {
             sub_id: hqySubId,
             with_sub_data: '1'
         }, `_token=${hqyToken}`);
-        fs.writeFileSync(path.join(__dirname, `../info/classes/${classId}.json`), body);
+        fs.writeFileSync(path.join(__dirname, `../info/lessons/${lessonId}.json`), body);
         const { title, sub_title: subTitle, sub_content: sub } = JSON.parse(body).list[0];
         const { firm_source: { contents: firmURL }, save_playback: { contents: url } } = JSON.parse(sub);
         const info = {
             courseName: title,
-            className: subTitle,
+            lessonName: subTitle,
             url: url,
             firmURL: firmURL
         };
-        out(`Get urls of class video ${classId}.`);
+        out(`Get urls of lesson video ${lessonId}.`);
         return info;
     }
     catch (err) {
         log(err);
-        out(`Fail to get urls of class video ${classId}.`);
+        out(`Fail to get urls of lesson video ${lessonId}.`);
     }
 }
 async function collect() {
-    await getCourseInfosAndClassInfos(await getUserInfos());
+    await getCourseInfosAndLessonInfos(await getUserInfos());
 }
 exports.collect = collect;
 async function getVideo(path0, url) {
@@ -491,15 +490,15 @@ async function getVideo(path0, url) {
     return result;
 }
 async function download() {
-    const classInfosStr = fs.readFileSync(path.join(__dirname, '../classes.csv'), { encoding: 'utf8' });
-    const classInfos = await parseCSV(classInfosStr);
-    for (let i = 0; i < classInfos.length; i++) {
-        const { courseId, courseName, className, url, firmURL } = classInfos[i];
+    const lessonInfosStr = fs.readFileSync(path.join(__dirname, '../lessons.csv'), { encoding: 'utf8' });
+    const lessonInfos = await parseCSV(lessonInfosStr);
+    for (let i = 0; i < lessonInfos.length; i++) {
+        const { courseId, courseName, lessonName, url, firmURL } = lessonInfos[i];
         let path0 = path.join(__dirname, `../archive/${courseName} ${courseId}/`);
         if (!fs.existsSync(path0)) {
             fs.mkdirSync(path0);
         }
-        path0 = path.join(__dirname, `../archive/${courseName} ${courseId}/${className}.mp4`);
+        path0 = path.join(__dirname, `../archive/${courseName} ${courseId}/${lessonName}.mp4`);
         if (fs.existsSync(path0))
             continue;
         if (!init_1.config.useFirmURL) {

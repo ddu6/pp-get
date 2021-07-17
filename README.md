@@ -20,8 +20,8 @@ Fill in `passwords.csv`.
 ```
 npm run collect
 ```
-Check `classes.csv`.
+Check `lessons.csv`.
 ```
 npm run download
 ```
-Videos listed in `classes.csv` will be downloaded to `archive`.
+Videos listed in `lessons.csv` will be downloaded to `archive`.
