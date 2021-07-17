@@ -7,130 +7,20 @@ const fs = require("fs");
 const path = require("path");
 const init_1 = require("./init");
 const csv = require("csv");
-function getDate() {
-    const date = new Date();
-    return [date.getMonth() + 1, date.getDate()].map(val => val.toString().padStart(2, '0')).join('-') + ' ' + [date.getHours(), date.getMinutes(), date.getSeconds()].map(val => val.toString().padStart(2, '0')).join(':') + ':' + date.getMilliseconds().toString().padStart(3, '0');
-}
-function log(msg) {
-    let string = getDate() + '  ';
-    if (typeof msg !== 'string') {
-        const { stack } = msg;
-        if (stack !== undefined) {
-            string += stack;
-        }
-        else {
-            string += msg.message;
-        }
-    }
-    else {
-        string += msg;
-    }
-    string = string.replace(/\n */g, '\n                    ');
-    fs.appendFileSync(path.join(__dirname, '../info/log.txt'), string + '\n\n');
-    return string;
-}
-function out(msg) {
-    const string = log(msg);
-    console.log(string + '\n');
-}
-async function basicallyGet(url, params = {}, form = {}, cookie = '', referer = '', noUserAgent = false) {
-    let paramsStr = new URL(url).searchParams.toString();
-    if (paramsStr.length > 0) {
-        paramsStr += '&';
-    }
-    paramsStr += new URLSearchParams(params).toString();
-    if (paramsStr.length > 0) {
-        paramsStr = '?' + paramsStr;
-    }
-    url = new URL(paramsStr, url).href;
-    const formStr = new URLSearchParams(form).toString();
-    const headers = {};
-    if (cookie.length > 0) {
-        headers.Cookie = cookie;
-    }
-    if (referer.length > 0) {
-        headers.Referer = referer;
-    }
-    if (!noUserAgent) {
-        headers['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.198 Safari/537.36';
-    }
-    if (formStr.length > 0) {
-        Object.assign(headers, {
-            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
-        });
-    }
-    const options = {
-        method: formStr.length > 0 ? 'POST' : 'GET',
-        headers: headers
-    };
-    const result = await new Promise((resolve) => {
-        setTimeout(() => {
-            resolve(500);
-        }, init_1.config.timeout * 1000);
-        const httpsOrHTTP = url.startsWith('https://') ? https : http;
-        const req = httpsOrHTTP.request(url, options, async (res) => {
-            const { statusCode } = res;
-            if (statusCode === undefined) {
-                resolve(500);
-                return;
-            }
-            if (statusCode >= 400) {
-                resolve(statusCode);
-                return;
-            }
-            let cookie;
-            const cookie0 = res.headers["set-cookie"];
-            if (cookie0 === undefined) {
-                cookie = '';
-            }
-            else {
-                cookie = cookie0.map(val => val.split(';')[0]).join('; ');
-            }
-            let body = '';
-            const buffers = [];
-            res.on('data', chunk => {
-                if (typeof chunk === 'string') {
-                    body += chunk;
-                }
-                else if (chunk instanceof Buffer) {
-                    body += chunk;
-                    buffers.push(chunk);
-                }
-            });
-            res.on('end', () => {
-                resolve({
-                    body: body,
-                    buffer: Buffer.concat(buffers),
-                    cookie: cookie,
-                    headers: res.headers,
-                    status: statusCode
-                });
-            });
-            res.on('error', err => {
-                log(err);
-                resolve(500);
-            });
-        }).on('error', err => {
-            log(err);
-            resolve(500);
-        });
-        if (formStr.length > 0) {
-            req.write(formStr);
-        }
-        req.end();
-    });
-    return result;
-}
+const cli_tools_1 = require("@ddu6/cli-tools");
+const clit = new cli_tools_1.CLIT(__dirname, init_1.config);
 async function get(url, params = {}, cookie = '', referer = '') {
-    const result = await basicallyGet(url, params, {}, cookie, referer);
-    if (typeof result === 'number')
+    const result = await clit.get(url, params, {}, cookie, referer);
+    if (typeof result === 'number') {
         throw new Error(`${result.toString()}. Fail to get ${url}.`);
+    }
     return result;
 }
 async function post(url, form = {}, cookie = '', referer = '') {
-    const result = await basicallyGet(url, {}, form, cookie, referer);
-    if (typeof result === 'number')
+    const result = await clit.get(url, {}, form, cookie, referer);
+    if (typeof result === 'number') {
         throw new Error(`${result.toString()}. Fail to post ${url}.`);
+    }
     return result;
 }
 async function parseCSV(string) {
@@ -185,7 +75,7 @@ async function getUserInfos() {
         };
         users[studentId] = user;
         users0[studentId] = user;
-        out(`Get cookies of user ${studentId}.`);
+        clit.out(`Get cookies of user ${studentId}.`);
     }
     fs.writeFileSync(path0, JSON.stringify(users0, undefined, 4));
     return users;
@@ -289,7 +179,7 @@ async function getCourseInfosAndLessonInfos(users) {
         const { blackboardSession, hqyToken } = users[studentId];
         const lessonIds = await getLessonIds(blackboardSession, courseId);
         courseInfo.lessonIds = lessonIds;
-        out(`Find ${lessonIds.length} lesson videos of course ${courseId}.`);
+        clit.out(`Find ${lessonIds.length} lesson videos of course ${courseId}.`);
         for (let i = 0; i < lessonIds.length; i++) {
             const lessonId = lessonIds[i];
             let lessonInfo;
@@ -338,7 +228,7 @@ async function getCourseInfosAndLessonInfos(users) {
         lessonInfos.push(lessonInfo);
     }
     fs.writeFileSync(path.join(__dirname, '../lessons.csv'), await stringifyCSV(lessonInfos, ['courseName', 'courseId', 'lessonName', 'lessonId', 'url', 'firmURL']));
-    out('Finished.');
+    clit.out('Finished.');
 }
 async function getCourseIds(blackboardSession) {
     let body = '';
@@ -357,11 +247,11 @@ async function getCourseIds(blackboardSession) {
         }, `s_session_id=${blackboardSession}`)).body;
     }
     catch (err) {
-        log(err);
+        clit.log(err);
     }
     const result = body.match(/key=_\d+/g);
     if (result === null) {
-        log(`No course ids are got under blackboard session ${blackboardSession}.`);
+        clit.log(`No course ids are got under blackboard session ${blackboardSession}.`);
         return [];
     }
     const courseIds = result.map(val => val.split('_')[1]);
@@ -387,7 +277,7 @@ async function getLessonIds(blackboardSession, courseId) {
         if (err instanceof Error) {
             err.message = `${err.message} Fail to get lesson ids of course ${courseId}.`.trimStart();
         }
-        log(err);
+        clit.log(err);
         return [];
     }
 }
@@ -409,12 +299,12 @@ async function getLessonInfo(hqyToken, lessonId) {
             url: url,
             firmURL: firmURL
         };
-        out(`Get urls of lesson video ${lessonId}.`);
+        clit.out(`Get urls of lesson video ${lessonId}.`);
         return info;
     }
     catch (err) {
-        log(err);
-        out(`Fail to get urls of lesson video ${lessonId}.`);
+        clit.log(err);
+        clit.out(`Fail to get urls of lesson video ${lessonId}.`);
     }
 }
 async function collect() {
@@ -440,7 +330,7 @@ async function getVideo(path0, url) {
             }
             const tmp = res.headers["content-length"];
             if (tmp === undefined) {
-                log('Lack content-length.');
+                clit.log('Lack content-length.');
                 resolve(500);
                 return;
             }
@@ -452,16 +342,16 @@ async function getVideo(path0, url) {
                 stream = fs.createWriteStream(path0);
             }
             catch (err) {
-                log(err);
+                clit.log(err);
                 resolve(500);
                 return;
             }
             res.on('error', err => {
-                log(err);
+                clit.log(err);
                 resolve(500);
             });
             stream.on('error', err => {
-                log(err);
+                clit.log(err);
                 resolve(500);
             });
             res.pipe(stream);
@@ -483,7 +373,7 @@ async function getVideo(path0, url) {
                 resolve(500);
             });
         }).on('error', err => {
-            log(err);
+            clit.log(err);
             resolve(500);
         });
     });
@@ -504,37 +394,37 @@ async function download() {
         if (!init_1.config.useFirmURL) {
             const result = await getVideo(path0, url);
             if (result === 200) {
-                out(`Download ${url} to ${path0}.`);
+                clit.out(`Download ${url} to ${path0}.`);
                 continue;
             }
-            out(`${result}. Fail to download ${url} to ${path0}.`);
+            clit.out(`${result}. Fail to download ${url} to ${path0}.`);
             try {
                 fs.unlinkSync(path0);
             }
             catch (err) {
-                log(err);
+                clit.log(err);
             }
             continue;
         }
         let result = await getVideo(path0, firmURL);
         if (result === 200) {
-            out(`Download ${firmURL} to ${path0}.`);
+            clit.out(`Download ${firmURL} to ${path0}.`);
             continue;
         }
-        out(`${result}. Fail to download ${firmURL} to ${path0}.`);
+        clit.out(`${result}. Fail to download ${firmURL} to ${path0}.`);
         result = await getVideo(path0, url);
         if (result === 200) {
-            out(`Download ${url} to ${path0}.`);
+            clit.out(`Download ${url} to ${path0}.`);
             continue;
         }
-        out(`${result}. Fail to download ${url} to ${path0}.`);
+        clit.out(`${result}. Fail to download ${url} to ${path0}.`);
         try {
             fs.unlinkSync(path0);
         }
         catch (err) {
-            log(err);
+            clit.log(err);
         }
     }
-    out('Finished.');
+    clit.out('Finished.');
 }
 exports.download = download;
