@@ -187,7 +187,7 @@ async function getUserInfos() {
         users0[studentId] = user;
         out(`Get cookies of user ${studentId}.`);
     }
-    fs.writeFileSync(path0, JSON.stringify(users0));
+    fs.writeFileSync(path0, JSON.stringify(users0, undefined, 4));
     return users;
 }
 async function getLoginCookie(studentId, password, appId, appName, redirectURL) {
@@ -310,7 +310,7 @@ async function getCourseInfosAndLessonInfos(users) {
             }, lessonInfo));
         }
     }
-    fs.writeFileSync(path0, JSON.stringify(allCourseInfos));
+    fs.writeFileSync(path0, JSON.stringify(allCourseInfos, undefined, 4));
     allLessonInfos.sort((a, b) => {
         if (a.courseName < b.courseName)
             return -1;

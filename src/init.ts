@@ -17,7 +17,7 @@ export const config={
 }
 let path0=path.join(__dirname,'../config.json')
 if(!fs.existsSync(path0)){
-    fs.writeFileSync(path0,JSON.stringify(config,null,4))
+    fs.writeFileSync(path0,JSON.stringify(config,undefined,4))
 }else{
     Object.assign(config,JSON.parse(fs.readFileSync(path0,{encoding:'utf8'})))
 }
