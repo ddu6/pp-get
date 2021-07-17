@@ -9,9 +9,6 @@ git clone https://github.com/ddu6/pp-get.git
 cd pp-get
 ```
 ```
-npm install
-```
-```
 npm run init
 ```
 Fill in `passwords.csv`.

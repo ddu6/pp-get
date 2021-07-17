@@ -1,6 +1,6 @@
 {
   "scripts": {
-    "init": "node dist/init.js",
+    "init": "npm i && node dist/init.js",
     "collect": "node dist/collect.js",
     "download": "node dist/download.js"
   },
