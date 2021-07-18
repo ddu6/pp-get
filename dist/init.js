@@ -16,7 +16,6 @@ const path = require("path");
 exports.config = {
     collectOldCourses: false,
     useFirmURL: true,
-    timeout: 10,
 };
 let path0 = path.join(__dirname, '../config.json');
 if (!fs.existsSync(path0)) {

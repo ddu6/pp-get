@@ -5,7 +5,7 @@ import * as path from 'path'
 import {config} from './init'
 import * as csv from 'csv'
 import {CLIT} from '@ddu6/cli-tools'
-const clit=new CLIT(__dirname,config)
+const clit=new CLIT(__dirname)
 interface UserInfo{
     password:string
     blackboardSession:string
@@ -27,14 +27,14 @@ interface CompleteLessonInfo extends LessonInfo{
     lessonId:string
 }
 async function get(url:string,params:Record<string,string>={},cookie='',referer=''){
-    const result=await clit.get(url,params,{},cookie,referer)
+    const result=await clit.request(url,params,{},cookie,referer)
     if(typeof result==='number'){
         throw new Error(`${result.toString()}. Fail to get ${url}.`)
     }
     return result
 }
 async function post(url:string,form:Record<string,string>={},cookie='',referer=''){
-    const result=await clit.get(url,{},form,cookie,referer)
+    const result=await clit.request(url,{},form,cookie,referer)
     if(typeof result==='number'){
         throw new Error(`${result.toString()}. Fail to post ${url}.`)
     }
@@ -48,7 +48,9 @@ async function parseCSV(string:string){
             trim:true,
             skip_lines_with_error:true
         },(err,val)=>{
-            if(err)throw err
+            if(err){
+                throw err
+            }
             resolve(val)
         })
     })
@@ -61,7 +63,9 @@ async function stringifyCSV(json:any,columns:string[]){
             quoted_string:true,
             columns:columns
         },(err,val)=>{
-            if(err)throw err
+            if(err){
+                throw err
+            }
             resolve(val)
         })
     })
@@ -78,7 +82,9 @@ async function getUserInfos(){
         users0={}
     }
     const passwords=await parseCSV(passwordsStr)
-    if(passwords.length===0)throw new Error('passwords.csv is not filled in correctly.')
+    if(passwords.length===0){
+        throw new Error('passwords.csv is not filled in correctly.')
+    }
     for(let i=0;i<passwords.length;i++){
         const {studentId,password}=passwords[i]
         const user:UserInfo={
@@ -109,7 +115,9 @@ async function getLoginCookie(studentId:string,password:string,appId:string,appN
         redirUrl:redirectURL
     },`remember=true; userName=${studentId}; ${cookie}`,'https://iaaa.pku.edu.cn/iaaa/oauth.jsp')
     const {token}=JSON.parse(body)
-    if(typeof token!=='string')throw new Error(`Fail to get login cookie of app ${appId}.`)
+    if(typeof token!=='string'){
+        throw new Error(`Fail to get login cookie of app ${appId}.`)
+    }
     cookie=(await get(redirectURL,{
         _rand:Math.random().toString(),
         token:token
@@ -119,16 +127,22 @@ async function getLoginCookie(studentId:string,password:string,appId:string,appN
 async function getBlackboardSession(studentId:string,password:string){
     let cookie=await getLoginCookie(studentId,password,'blackboard','1','https://course.pku.edu.cn/webapps/bb-sso-bb_bb60/execute/authValidate/campusLogin')
     const result=cookie.match(/s_session_id=([^;]{8,}?)(?:;|$)/)
-    if(result===null)throw new Error(`Fail to get blackboard session of user ${studentId}.`)
+    if(result===null){
+        throw new Error(`Fail to get blackboard session of user ${studentId}.`)
+    }
     const session=result[1]
-    if(typeof session!=='string')throw new Error(`Fail to get blackboard session of user ${studentId}.`)
+    if(typeof session!=='string'){
+        throw new Error(`Fail to get blackboard session of user ${studentId}.`)
+    }
     return session
 }
 async function getHQYToken(studentId:string,password:string){
     let cookie=await getLoginCookie(studentId,password,'portal2017','北京大学校内信息门户新版','https://portal.pku.edu.cn/portal2017/ssoLogin.do')
     const {body}=await post('https://portal.pku.edu.cn/portal2017/account/getBasicInfo.do',{},cookie)
     const {name}=JSON.parse(body)
-    if(typeof name!=='string')throw new Error(`Fail to get hqy token of user ${studentId}.`)
+    if(typeof name!=='string'){
+        throw new Error(`Fail to get hqy token of user ${studentId}.`)
+    }
     cookie=(await get('https://passportnewhqy.pku.edu.cn/index.php',{
         r:'auth/login',
         tenant_code:'1',
@@ -137,9 +151,13 @@ async function getHQYToken(studentId:string,password:string){
         account:studentId
     })).cookie
     const result=cookie.match(/_token=([^;]{16,}?)(?:;|$)/)
-    if(result===null)throw new Error(`Fail to get hqy token of user ${studentId}.`)
+    if(result===null){
+        throw new Error(`Fail to get hqy token of user ${studentId}.`)
+    }
     const token=result[1]
-    if(typeof token!=='string')throw new Error(`Fail to get hqy token of user ${studentId}.`)
+    if(typeof token!=='string'){
+        throw new Error(`Fail to get hqy token of user ${studentId}.`)
+    }
     return token
 }
 async function getCourseInfosAndLessonInfos(users:Record<string,UserInfo>){
@@ -193,7 +211,9 @@ async function getCourseInfosAndLessonInfos(users:Record<string,UserInfo>){
                 lessonInfo=tmp
             }else{
                 const tmp=await getLessonInfo(hqyToken,lessonId)
-                if(tmp===undefined)continue
+                if(tmp===undefined){
+                    continue
+                }
                 lessonInfos[lessonId]=tmp
                 lessonInfo=tmp
             }
@@ -205,13 +225,27 @@ async function getCourseInfosAndLessonInfos(users:Record<string,UserInfo>){
     }
     fs.writeFileSync(path0,JSON.stringify(allCourseInfos,undefined,4))
     allLessonInfos.sort((a,b)=>{
-        if(a.courseName<b.courseName)return -1
-        if(a.courseName>b.courseName)return 1
-        if(a.courseId<b.courseId)return -1
-        if(a.courseId>b.courseId)return 1
-        if(a.lessonName<b.lessonName)return -1
-        if(a.lessonName>b.lessonName)return 1
-        if(a.lessonId<b.lessonId)return -1
+        if(a.courseName<b.courseName){
+            return -1
+        }
+        if(a.courseName>b.courseName){
+            return 1
+        }
+        if(a.courseId<b.courseId){
+            return -1
+        }
+        if(a.courseId>b.courseId){
+            return 1
+        }
+        if(a.lessonName<b.lessonName){
+            return -1
+        }
+        if(a.lessonName>b.lessonName){
+            return 1
+        }
+        if(a.lessonId<b.lessonId){
+            return -1
+        }
         return 1
     })
     fs.writeFileSync(path.join(__dirname,'../lessons-all.csv'),await stringifyCSV(allLessonInfos,['courseName','courseId','lessonName','lessonId','url','firmURL']))
@@ -219,7 +253,9 @@ async function getCourseInfosAndLessonInfos(users:Record<string,UserInfo>){
         const lessonInfo=allLessonInfos[i]
         const {courseId,courseName,lessonName}=lessonInfo
         const path0=path.join(__dirname,`../archive/${courseName} ${courseId}/${lessonName}.mp4`)
-        if(fs.existsSync(path0))continue
+        if(fs.existsSync(path0)){
+            continue
+        }
         lessonInfos.push(lessonInfo)
     }
     fs.writeFileSync(path.join(__dirname,'../lessons.csv'),await stringifyCSV(lessonInfos,['courseName','courseId','lessonName','lessonId','url','firmURL']))
@@ -258,10 +294,14 @@ async function getLessonIds(blackboardSession:string,courseId:string){
     fs.writeFileSync(path.join(__dirname,`../info/courses/${courseId}.html`),body)
     try{
         let result=body.match(/hqyCourseId=\d+/)
-        if(result===null)throw new Error()
+        if(result===null){
+            throw new Error()
+        }
         const hqyCourseId=result.map(val=>val.slice('hqyCourseId='.length))[0]
         result=body.match(/hqySubId=\d+/g)
-        if(result===null)throw new Error()
+        if(result===null){
+            throw new Error()
+        }
         const lessonIds=result.map(val=>hqyCourseId+'-'+val.slice('hqySubId='.length))
         return lessonIds
     }catch(err){
@@ -377,7 +417,9 @@ export async function download(){
             fs.mkdirSync(path0)
         }
         path0=path.join(__dirname,`../archive/${courseName} ${courseId}/${lessonName}.mp4`)
-        if(fs.existsSync(path0))continue
+        if(fs.existsSync(path0)){
+            continue
+        }
         if(!config.useFirmURL){
             const result=await getVideo(path0,url)
             if(result===200){
