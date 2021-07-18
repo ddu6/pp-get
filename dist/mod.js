@@ -40,6 +40,9 @@ async function getUserInfos() {
     }
     for (let i = 0; i < passwords.length; i++) {
         const { studentId, password } = passwords[i];
+        if (studentId === undefined || password === undefined) {
+            continue;
+        }
         const user = {
             password: password,
             blackboardSession: await getBlackboardSession(studentId, password),
@@ -325,7 +328,6 @@ async function getVideo(path0, url) {
             }
             const contentLength = Number(tmp);
             let currentLength = 0;
-            let delta = 0;
             let stream;
             try {
                 stream = fs.createWriteStream(path0);
@@ -346,14 +348,10 @@ async function getVideo(path0, url) {
             res.pipe(stream);
             process.stdout.write(`${(currentLength / contentLength * 100).toFixed(3)}% of ${(contentLength / 1024 / 1024 / 1024).toFixed(1)}GiB downloaded to ${path0}.\r`);
             res.on('data', chunk => {
-                delta += chunk.length;
-                // if(delta<1000000)return
-                currentLength += delta;
-                delta = 0;
+                currentLength += chunk.length;
                 process.stdout.write(`${(currentLength / contentLength * 100).toFixed(3)}% of ${(contentLength / 1024 / 1024 / 1024).toFixed(1)}GiB downloaded to ${path0}.\r`);
             });
             res.on('end', () => {
-                currentLength += delta;
                 process.stdout.write(`${(currentLength / contentLength * 100).toFixed(3)}% of ${(contentLength / 1024 / 1024 / 1024).toFixed(1)}GiB downloaded to ${path0}.\r`);
                 if (currentLength === contentLength) {
                     resolve(200);
@@ -373,6 +371,9 @@ async function download() {
     const lessonInfos = await csv.parse(lessonInfosStr);
     for (let i = 0; i < lessonInfos.length; i++) {
         const { courseId, courseName, lessonName, url, firmURL } = lessonInfos[i];
+        if (courseId === undefined || courseName === undefined || lessonName === undefined || url === undefined || firmURL === undefined) {
+            continue;
+        }
         let path0 = path.join(__dirname, `../archive/${courseName} ${courseId}/`);
         if (!fs.existsSync(path0)) {
             fs.mkdirSync(path0);

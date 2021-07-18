@@ -1,6 +1,6 @@
 import * as csv from 'csv'
 export async function parse(string:string){
-    const result=await new Promise((resolve:(val:Record<string,string>[])=>void)=>{
+    const result=await new Promise((resolve:(val:Record<string,string|undefined>[])=>void)=>{
         csv.parse(string,{
             columns:true,
             comment:'#',
