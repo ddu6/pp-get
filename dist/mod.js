@@ -6,7 +6,7 @@ const http = require("http");
 const fs = require("fs");
 const path = require("path");
 const init_1 = require("./init");
-const csv = require("csv");
+const csv = require("./csv");
 const cli_tools_1 = require("@ddu6/cli-tools");
 const clit = new cli_tools_1.CLIT(__dirname);
 async function get(url, params = {}, cookie = '', referer = '') {
@@ -23,37 +23,6 @@ async function post(url, form = {}, cookie = '', referer = '') {
     }
     return result;
 }
-async function parseCSV(string) {
-    const result = await new Promise((resolve) => {
-        csv.parse(string, {
-            columns: true,
-            comment: '#',
-            trim: true,
-            skip_lines_with_error: true
-        }, (err, val) => {
-            if (err) {
-                throw err;
-            }
-            resolve(val);
-        });
-    });
-    return result;
-}
-async function stringifyCSV(json, columns) {
-    const string = await new Promise((resolve) => {
-        csv.stringify(json, {
-            header: true,
-            quoted_string: true,
-            columns: columns
-        }, (err, val) => {
-            if (err) {
-                throw err;
-            }
-            resolve(val);
-        });
-    });
-    return string;
-}
 async function getUserInfos() {
     const users = {};
     const path0 = path.join(__dirname, '../info/user.json');
@@ -65,7 +34,7 @@ async function getUserInfos() {
     catch (err) {
         users0 = {};
     }
-    const passwords = await parseCSV(passwordsStr);
+    const passwords = await csv.parse(passwordsStr);
     if (passwords.length === 0) {
         throw new Error('passwords.csv is not filled in correctly.');
     }
@@ -235,7 +204,7 @@ async function getCourseInfosAndLessonInfos(users) {
         }
         return 1;
     });
-    fs.writeFileSync(path.join(__dirname, '../lessons-all.csv'), await stringifyCSV(allLessonInfos, ['courseName', 'courseId', 'lessonName', 'lessonId', 'url', 'firmURL']));
+    fs.writeFileSync(path.join(__dirname, '../lessons-all.csv'), await csv.stringify(allLessonInfos, ['courseName', 'courseId', 'lessonName', 'lessonId', 'url', 'firmURL']));
     for (let i = 0; i < allLessonInfos.length; i++) {
         const lessonInfo = allLessonInfos[i];
         const { courseId, courseName, lessonName } = lessonInfo;
@@ -245,7 +214,7 @@ async function getCourseInfosAndLessonInfos(users) {
         }
         lessonInfos.push(lessonInfo);
     }
-    fs.writeFileSync(path.join(__dirname, '../lessons.csv'), await stringifyCSV(lessonInfos, ['courseName', 'courseId', 'lessonName', 'lessonId', 'url', 'firmURL']));
+    fs.writeFileSync(path.join(__dirname, '../lessons.csv'), await csv.stringify(lessonInfos, ['courseName', 'courseId', 'lessonName', 'lessonId', 'url', 'firmURL']));
     clit.out('Finished.');
 }
 async function getCourseIds(blackboardSession) {
@@ -401,7 +370,7 @@ async function getVideo(path0, url) {
 }
 async function download() {
     const lessonInfosStr = fs.readFileSync(path.join(__dirname, '../lessons.csv'), { encoding: 'utf8' });
-    const lessonInfos = await parseCSV(lessonInfosStr);
+    const lessonInfos = await csv.parse(lessonInfosStr);
     for (let i = 0; i < lessonInfos.length; i++) {
         const { courseId, courseName, lessonName, url, firmURL } = lessonInfos[i];
         let path0 = path.join(__dirname, `../archive/${courseName} ${courseId}/`);
